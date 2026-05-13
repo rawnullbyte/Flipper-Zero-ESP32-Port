@@ -13,28 +13,24 @@ jobs:
       matrix:
         board:
           - name: generic_esp32s3_16mb
-            script_key: esp32s3
             build_dir: build_generic_16mb
             artifact_name: flipper-esp32s3-generic
             chip: esp32s3
             flash_size: 16MB
             partitions_csv: "partitions_multiboot.csv"
           - name: generic_esp32s3_8mb
-            script_key: esp32s3
             build_dir: build_generic_8mb
             artifact_name: flipper-esp32s3-generic
             chip: esp32s3
             flash_size: 8MB
             partitions_csv: "partitions_singleapp_small.csv"
           - name: lilygo_t_embed_cc1101
-            script_key: t_embed
             build_dir: build_t_embed
             artifact_name: flipper-lilygo-t-embed-cc1101
             chip: esp32s3
             flash_size: 16MB
             partitions_csv: "partitions_multiboot.csv"
           - name: waveshare_c6_1.9
-            script_key: waveshare_c6
             build_dir: build_waveshare_c6
             artifact_name: flipper-waveshare-c6-1.9
             chip: esp32c6
@@ -106,7 +102,7 @@ jobs:
 
           rm -f sdkconfig
 
-          ./build.sh --board ${{ matrix.board.script_key }} --build-only
+          ./build.sh --board ${{ matrix.board.name }} --build-only
 
       - name: Package artifacts
         run: |
