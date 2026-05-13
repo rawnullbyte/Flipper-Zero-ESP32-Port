@@ -12,24 +12,34 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - name: generic_esp32s3
+          - name: generic_esp32s3_16mb
             script_key: esp32s3
-            build_dir: build_s3
+            build_dir: build_generic_16mb
             artifact_name: flipper-esp32s3-generic
             chip: esp32s3
             flash_size: 16MB
+            partitions_csv: "partitions_multiboot.csv"
+          - name: generic_esp32s3_8mb
+            script_key: esp32s3
+            build_dir: build_generic_8mb
+            artifact_name: flipper-esp32s3-generic
+            chip: esp32s3
+            flash_size: 8MB
+            partitions_csv: "partitions_singleapp_small.csv"
           - name: lilygo_t_embed_cc1101
             script_key: t_embed
             build_dir: build_t_embed
             artifact_name: flipper-lilygo-t-embed-cc1101
             chip: esp32s3
             flash_size: 16MB
+            partitions_csv: "partitions_multiboot.csv"
           - name: waveshare_c6_1.9
             script_key: waveshare_c6
             build_dir: build_waveshare_c6
             artifact_name: flipper-waveshare-c6-1.9
             chip: esp32c6
             flash_size: 8MB
+            partitions_csv: "partitions_singleapp_small.csv"
 
     steps:
       - name: Checkout code
@@ -87,7 +97,14 @@ jobs:
         run: |
           source ~/esp/esp-idf/export.sh
           chmod +x ./build.sh
-          ./build.sh --board ${{ matrix.board.script_key }} --build-only
+
+          # Override the partition table and flash size via IDF CMake arguments
+          export IDC_OPTS="-DCONFIG_PARTITION_TABLE_CUSTOM=y \
+                           -DCONFIG_PARTITION_TABLE_CUSTOM_FILENAME=${{ matrix.board.partitions_csv }} \
+                           -DCONFIG_ESPTOOLPY_FLASHSIZE_${{ matrix.board.flash_size }}=y"
+
+          # Pass these options to the build script
+          ./build.sh --board ${{ matrix.board.script_key }} --build-only $IDC_OPTS
 
       - name: Package artifacts
         run: |
