@@ -16,24 +16,24 @@ declare -A TARGETS=(
     ["esp32s3"]="esp32s3"
     ["generic_esp32s3_16mb"]="esp32s3"
     ["generic_esp32s3_8mb"]="esp32s3"
-    ["waveshare_c6"]="esp32c6"
-    ["t_embed"]="esp32s3"
+    ["waveshare_c6_1.9"]="esp32c6"
+    ["lilygo_t_embed_cc1101"]="esp32s3"
 )
 
 declare -A NAMES=(
     ["esp32s3"]="esp32s3_generic"
     ["generic_esp32s3_16mb"]="esp32s3_generic"
     ["generic_esp32s3_8mb"]="esp32s3_generic"
-    ["waveshare_c6"]="waveshare_c6_1.9"
-    ["t_embed"]="lilygo_t_embed_cc1101"
+    ["waveshare_c6_1.9"]="waveshare_c6_1.9"
+    ["lilygo_t_embed_cc1101"]="lilygo_t_embed_cc1101"
 )
 
 declare -A DIRS=(
     ["esp32s3"]="build_s3"
     ["generic_esp32s3_16mb"]="build_generic_16mb"
     ["generic_esp32s3_8mb"]="build_generic_8mb"
-    ["waveshare_c6"]="build_waveshare_c6"
-    ["t_embed"]="build_t_embed"
+    ["waveshare_c6_1.9"]="build_waveshare_c6"
+    ["lilygo_t_embed_cc1101"]="build_t_embed"
 )
 
 usage() {
