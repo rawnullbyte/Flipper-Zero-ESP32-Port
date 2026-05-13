@@ -98,13 +98,13 @@ jobs:
           source ~/esp/esp-idf/export.sh
           chmod +x ./build.sh
 
-          # Override the partition table and flash size via IDF CMake arguments
-          export IDC_OPTS="-DCONFIG_PARTITION_TABLE_CUSTOM=y \
-                           -DCONFIG_PARTITION_TABLE_CUSTOM_FILENAME=${{ matrix.board.partitions_csv }} \
-                           -DCONFIG_ESPTOOLPY_FLASHSIZE_${{ matrix.board.flash_size }}=y"
+          export EXTRA_CFLAGS="-DCONFIG_PARTITION_TABLE_CUSTOM=y -DCONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"${{ matrix.board.partitions_csv }}\" -DCONFIG_ESPTOOLPY_FLASHSIZE_${{ matrix.board.flash_size }}=y"
 
-          # Pass these options to the build script
-          ./build.sh --board ${{ matrix.board.script_key }} --build-only $IDC_OPTS
+          export IDF_CMAKE_OPTS="-DCONFIG_PARTITION_TABLE_CUSTOM=y \
+                                 -DCONFIG_PARTITION_TABLE_CUSTOM_FILENAME=${{ matrix.board.partitions_csv }} \
+                                 -DCONFIG_ESPTOOLPY_FLASHSIZE_${{ matrix.board.flash_size }}=y"
+
+          ./build.sh --board ${{ matrix.board.script_key }} --build-only
 
       - name: Package artifacts
         run: |
