@@ -98,11 +98,13 @@ jobs:
           source ~/esp/esp-idf/export.sh
           chmod +x ./build.sh
 
-          export EXTRA_CFLAGS="-DCONFIG_PARTITION_TABLE_CUSTOM=y -DCONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"${{ matrix.board.partitions_csv }}\" -DCONFIG_ESPTOOLPY_FLASHSIZE_${{ matrix.board.flash_size }}=y"
+          export SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.${{ matrix.board.chip }}"
 
           export IDF_CMAKE_OPTS="-DCONFIG_PARTITION_TABLE_CUSTOM=y \
                                  -DCONFIG_PARTITION_TABLE_CUSTOM_FILENAME=${{ matrix.board.partitions_csv }} \
                                  -DCONFIG_ESPTOOLPY_FLASHSIZE_${{ matrix.board.flash_size }}=y"
+
+          rm -f sdkconfig
 
           ./build.sh --board ${{ matrix.board.script_key }} --build-only
 
