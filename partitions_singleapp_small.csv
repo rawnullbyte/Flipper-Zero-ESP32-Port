@@ -1,9 +1,9 @@
-# Name,     Type, SubType,   Offset,    Size,      Flags
+# Name,     Type, SubType,  Offset,    Size,      Flags
 # ---------------------------------------------------------------------------
-# Single-boot layout for 8 MB flash boards.
-# Flipper Zero port resides in factory or ota_0.
+# Single-boot layout for 8 MB flash boards (8,192 KB).
+# Total hex size: 0x800000
 # ---------------------------------------------------------------------------
-nvs,        data, nvs,       0x9000,    0x6000,
-otadata,    data, ota,       0xf000,    0x2000,
-phy_init,   data, phy,       0x11000,   0x1000,
-factory,    app,  factory,   0x20000,   0x7A0000,
+nvs,        data, nvs,      0x9000,    0x6000,
+otadata,    data, ota,      0xf000,    0x2000,
+phy_init,   data, phy,      0x11000,   0x1000,
+factory,    app,  factory,  0x20000,   0x7E0000,
