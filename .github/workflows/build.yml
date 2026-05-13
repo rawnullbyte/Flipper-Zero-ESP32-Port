@@ -43,10 +43,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Clean stale sdkconfig
+      - name: Clean stale configs
         run: |
           rm -f sdkconfig
-          rm -f ${{ matrix.board.build_dir }}/sdkconfig
+          rm -rf ${{ matrix.board.build_dir }}
 
       - name: Install ESP-IDF system dependencies
         run: |
@@ -86,7 +86,6 @@ jobs:
       - name: Verify ESP-IDF environment
         run: |
           source ~/esp/esp-idf/export.sh
-          echo "IDF_PATH=$IDF_PATH"
           idf.py --version
 
       - name: Build
@@ -94,15 +93,15 @@ jobs:
           source ~/esp/esp-idf/export.sh
           chmod +x ./build.sh
 
+          # Set defaults for the chip type
           export SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.${{ matrix.board.chip }}"
 
-          export IDF_CMAKE_OPTS="-DCONFIG_PARTITION_TABLE_CUSTOM=y \
-                                 -DCONFIG_PARTITION_TABLE_CUSTOM_FILENAME=${{ matrix.board.partitions_csv }} \
-                                 -DCONFIG_ESPTOOLPY_FLASHSIZE_${{ matrix.board.flash_size }}=y"
-
-          rm -f sdkconfig
-
-          ./build.sh --board ${{ matrix.board.name }} --build-only
+          # Run the build script with explicit parameters
+          ./build.sh \
+            --board "${{ matrix.board.name }}" \
+            --partitions "${{ matrix.board.partitions_csv }}" \
+            --flash-size "${{ matrix.board.flash_size }}" \
+            --build-only
 
       - name: Package artifacts
         run: |
@@ -112,43 +111,29 @@ jobs:
           BUILD="${{ matrix.board.build_dir }}"
           STAGE="artifact_staging"
 
-          # Clean flat staging directory — what users actually unzip
           rm -rf "$STAGE"
           mkdir -p "$STAGE/bootloader" "$STAGE/partition_table"
 
-          # Firmware binaries
-          cp "$BUILD/furi_esp32.bin"                          "$STAGE/furi_esp32.bin"
-          cp "$BUILD/bootloader/bootloader.bin"               "$STAGE/bootloader/bootloader.bin"
-          cp "$BUILD/partition_table/partition-table.bin"     "$STAGE/partition_table/partition-table.bin"
+          # Copy binaries
+          cp "$BUILD/furi_esp32.bin"                      "$STAGE/furi_esp32.bin"
+          cp "$BUILD/bootloader/bootloader.bin"           "$STAGE/bootloader/bootloader.bin"
+          cp "$BUILD/partition_table/partition-table.bin" "$STAGE/partition_table/partition-table.bin"
 
-          # ESP-IDF flash-args file (contains verified offsets and flash params)
           if [ -f "$BUILD/flash_project_args" ]; then
             cp "$BUILD/flash_project_args" "$STAGE/flash_args.txt"
           fi
 
-          # Generate board-specific flash scripts by substituting template placeholders
-          sed \
-            -e "s/__BOARD_NAME__/${BOARD}/g" \
-            -e "s/__CHIP__/${CHIP}/g"         \
-            -e "s/__FLASH_SIZE__/${FLASH_SIZE}/g" \
+          # Generate flash scripts
+          sed -e "s/__BOARD_NAME__/${BOARD}/g" -e "s/__CHIP__/${CHIP}/g" -e "s/__FLASH_SIZE__/${FLASH_SIZE}/g" \
             tools/flash_linux.sh > "$STAGE/flash_linux.sh"
           chmod +x "$STAGE/flash_linux.sh"
 
-          sed \
-            -e "s/__BOARD_NAME__/${BOARD}/g" \
-            -e "s/__CHIP__/${CHIP}/g"         \
-            -e "s/__FLASH_SIZE__/${FLASH_SIZE}/g" \
+          sed -e "s/__BOARD_NAME__/${BOARD}/g" -e "s/__CHIP__/${CHIP}/g" -e "s/__FLASH_SIZE__/${FLASH_SIZE}/g" \
             tools/flash_windows.bat > "$STAGE/flash_windows.bat"
-
-          echo ""
-          echo "=== Staged artifact contents ==="
-          ls -lh "$STAGE" "$STAGE/bootloader" "$STAGE/partition_table"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.board.artifact_name }}
-          # Upload from the flat staging dir so the zip has no extra path prefix.
-          # Users unzip and immediately run flash_linux.sh or flash_windows.bat.
           path: artifact_staging/
           retention-days: 30
