@@ -81,8 +81,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ -z "${SELECTED_BOARD}" ]]; then
-    echo "Error: --board <name> is required." >&2
+if [[ -z "${NAMES[$SELECTED_BOARD]:-}" ]]; then
+    echo "Error: '$SELECTED_BOARD' is not a valid board." >&2
+    echo "Supported boards: ${!NAMES[*]}"
     exit 1
 fi
 
