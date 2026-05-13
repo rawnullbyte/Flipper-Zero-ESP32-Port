@@ -19,9 +19,16 @@ if [ -z "$APP_DIR" ] || [ ! -d "$APP_DIR" ]; then
     exit 1
 fi
 
-# Source ESP-IDF for toolchain access
-if [ -f "$HOME/esp/esp-idf/export.sh" ]; then
-    . "$HOME/esp/esp-idf/export.sh" >/dev/null 2>&1
+# Source ESP-IDF for toolchain access. Honor ESP_IDF_DIR if set; fall back to
+# the canonical ~/esp/esp-idf path; finally try the Windows default install.
+if [ -z "$IDF_PATH" ]; then
+    if [ -n "$ESP_IDF_DIR" ] && [ -f "$ESP_IDF_DIR/export.sh" ]; then
+        . "$ESP_IDF_DIR/export.sh" >/dev/null 2>&1
+    elif [ -f "$HOME/esp/esp-idf/export.sh" ]; then
+        . "$HOME/esp/esp-idf/export.sh" >/dev/null 2>&1
+    elif [ -f "/c/Espressif/frameworks/esp-idf-v5.4.1/export.sh" ]; then
+        . "/c/Espressif/frameworks/esp-idf-v5.4.1/export.sh" >/dev/null 2>&1
+    fi
 fi
 
 # ── Parse application.fam ───────────────────────────────────────────
@@ -73,6 +80,7 @@ COMMON_INCLUDES=(
     -I"$PROJECT_DIR/components/notification"
     -I"$PROJECT_DIR/components/assets"
     -I"$PROJECT_DIR/components/loader"
+    -I"$PROJECT_DIR/applications/services"
     -I"$PROJECT_DIR/components/flipper_application"
     -I"$PROJECT_DIR/components/flipper_format"
     -I"$PROJECT_DIR/components/dialogs"
@@ -80,18 +88,26 @@ COMMON_INCLUDES=(
     -I"$PROJECT_DIR/components/u8g2"
     -I"$PROJECT_DIR/components/furi_hal"
     -I"$PROJECT_DIR/components/furi_hal/boards"
+    -I"$PROJECT_DIR/components/furi_ble"
+    -I"$PROJECT_DIR/components/bt"
+    -I"$PROJECT_DIR/components/btshim"
     -I"$PROJECT_DIR/components/subghz"
     -I"$PROJECT_DIR/components/bit_lib"
     -I"$PROJECT_DIR/components/archive"
     -I"$PROJECT_DIR/components/nfc"
     -I"$PROJECT_DIR/components/infrared"
     -I"$PROJECT_DIR/components/lfrfid"
+    -I"$PROJECT_DIR/components/ble_serial"
     -I"$PROJECT_DIR/targets"
     -I"$PROJECT_DIR/lib/subghz"
 )
 
-# ESP-IDF common includes
-IDF="$HOME/esp/esp-idf/components"
+# ESP-IDF common includes — derive from IDF_PATH (set by export.sh) when present.
+if [ -n "$IDF_PATH" ] && [ -d "$IDF_PATH/components" ]; then
+    IDF="$IDF_PATH/components"
+else
+    IDF="$HOME/esp/esp-idf/components"
+fi
 IDF_COMMON_INCLUDES=(
     -I"$IDF/newlib/platform_include"
     -I"$IDF/esp_hw_support/include"
@@ -120,18 +136,25 @@ IDF_COMMON_INCLUDES=(
     -I"$IDF/bt/include/esp32c3/include"
     -I"$IDF/bt/host/bluedroid/api/include/api"
     -I"$IDF/lwip/include"
+    -I"$IDF/lwip/lwip/src/include"
     -I"$IDF/lwip/port/include"
     -I"$IDF/lwip/port/freertos/include"
     -I"$IDF/lwip/port/esp32xx/include"
     -I"$IDF/driver/deprecated"
     -I"$IDF/driver/i2c/include"
+    -I"$IDF/esp_driver_i2s/include"
     -I"$IDF/esp_adc/include"
     -I"$IDF/mbedtls/port/include"
     -I"$IDF/mbedtls/mbedtls/include"
+    -I"$IDF/esp_lcd/include"
+    -I"$IDF/esp_lcd/interface"
+    -I"$IDF/esp_lcd/rgb/include"
+    -I"$IDF/esp_lcd/priv_include"
 )
 
 # ── Common compiler flags ───────────────────────────────────────────
 COMMON_CFLAGS=(
+    -D_GNU_SOURCE
     -fno-common
     -ffunction-sections
     -fdata-sections
@@ -143,6 +166,28 @@ COMMON_CFLAGS=(
     -Wno-unused-parameter
     -Wno-sign-compare
     -Os
+    -g
+    -DESP_PLATFORM
+    -DIDF_VER=\"v5.4.1\"
+    -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE
+    -DSOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ
+)
+
+COMMON_CXXFLAGS=(
+    -fno-common
+    -ffunction-sections
+    -fdata-sections
+    -fno-builtin
+    -fno-jump-tables
+    -fno-tree-switch-conversion
+    -std=gnu++17
+    -fno-exceptions
+    -fno-rtti
+    -Wall
+    -Wno-unused-parameter
+    -Wno-sign-compare
+    -Os
+    -g
     -DESP_PLATFORM
     -DIDF_VER=\"v5.4.1\"
     -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE
@@ -157,6 +202,7 @@ build_for_target() {
     local FW_BUILD_DIR="$4"
 
     local CC="${TOOLCHAIN}-gcc"
+    local CXX="${TOOLCHAIN}-g++"
     local LD="${TOOLCHAIN}-ld"
     local OBJCOPY="${TOOLCHAIN}-objcopy"
     local READELF="${TOOLCHAIN}-readelf"
@@ -266,26 +312,51 @@ build_for_target() {
     fi
 
     # Find source files
-    local -a SOURCES=($(find "$APP_DIR" -name '*.c' -type f))
+    local -a C_SOURCES=($(find "$APP_DIR" -name '*.c' -type f))
+    local -a CXX_SOURCES=($(find "$APP_DIR" -name '*.cpp' -type f))
     # Add generated icon .c files
     if [ -d "$ICONS_GEN_DIR" ]; then
         for icon_src in "$ICONS_GEN_DIR"/*.c; do
-            [ -f "$icon_src" ] && SOURCES+=("$icon_src")
+            [ -f "$icon_src" ] && C_SOURCES+=("$icon_src")
         done
     fi
 
-    echo "  Sources: ${#SOURCES[@]} files"
+    local TOTAL_SOURCES=$(( ${#C_SOURCES[@]} + ${#CXX_SOURCES[@]} ))
+    echo "  Sources: $TOTAL_SOURCES files (${#C_SOURCES[@]} C, ${#CXX_SOURCES[@]} C++)"
 
-    # Compile
+    # Auto-discover private lib include paths under $APP_DIR/lib/<libname>/
+    # (entspricht fap_private_libs[*].fap_include_paths in application.fam)
+    local -a APP_INCLUDES=(
+        -I"$APP_DIR" -I"$APP_DIR/helpers" -I"$APP_DIR/scenes"
+        -I"$APP_DIR/views" -I"$APP_DIR/protocols"
+        -I"$APP_DIR/app" -I"$APP_DIR/lib"
+    )
+    if [ -d "$APP_DIR/lib" ]; then
+        for libdir in "$APP_DIR"/lib/*/; do
+            [ -d "$libdir" ] && APP_INCLUDES+=(-I"${libdir%/}")
+        done
+    fi
+
+    # Compile C sources
     local -a OBJECTS=()
-    for src in "${SOURCES[@]}"; do
+    for src in "${C_SOURCES[@]}"; do
         local obj="$BUILD_DIR/$(echo "$src" | sed 's|/|_|g' | sed 's|\.c$|.o|')"
         OBJECTS+=("$obj")
 
         "$CC" "${COMMON_CFLAGS[@]}" "${TARGET_CFLAGS[@]}" \
             "${COMMON_INCLUDES[@]}" "${IDF_COMMON_INCLUDES[@]}" "${TARGET_INCLUDES[@]}" \
-            -I"$APP_DIR" -I"$APP_DIR/helpers" -I"$APP_DIR/scenes" \
-            -I"$APP_DIR/views" -I"$APP_DIR/protocols" \
+            "${APP_INCLUDES[@]}" \
+            -c "$src" -o "$obj"
+    done
+
+    # Compile C++ sources
+    for src in "${CXX_SOURCES[@]}"; do
+        local obj="$BUILD_DIR/$(echo "$src" | sed 's|/|_|g' | sed 's|\.cpp$|.o|')"
+        OBJECTS+=("$obj")
+
+        "$CXX" "${COMMON_CXXFLAGS[@]}" "${TARGET_CFLAGS[@]}" \
+            "${COMMON_INCLUDES[@]}" "${IDF_COMMON_INCLUDES[@]}" "${TARGET_INCLUDES[@]}" \
+            "${APP_INCLUDES[@]}" \
             -c "$src" -o "$obj"
     done
 
@@ -308,9 +379,14 @@ build_for_target() {
         $ICON_ARG \
         --output "$BUILD_DIR/manifest.bin"
 
-    # Inject manifest into ELF
+    # Inject manifest into ELF + strip Debug-Sections.
+    # --strip-debug entfernt .debug_* (DWARF) und ihre .rela.debug_* — bei Doom
+    # ~4.3 MB von 4.7 MB. Symbol-Tabelle (.symtab/.strtab) und Code-Relocations
+    # (.rela.text/.data/.rodata) bleiben erhalten, sind für ELF-Loader essentiell.
+    # app.elf bleibt mit voller Debug-Info verfügbar für lokale Analyse.
     "$OBJCOPY" --add-section .fapmeta="$BUILD_DIR/manifest.bin" \
         --set-section-flags .fapmeta=contents,readonly \
+        --strip-debug \
         "$BUILD_DIR/app.elf" "$OUTPUT"
 
     local SIZE=$(wc -c < "$OUTPUT")
