@@ -81,8 +81,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ -z "${SELECTED_BOARD}" || -z "${NAMES[$SELECTED_BOARD]+x}" ]]; then
-    echo "Error: Valid --board required (esp32s3, waveshare_c6, t_embed)." >&2
+if [[ -z "${SELECTED_BOARD}" ]]; then
+    echo "Error: --board <name> is required." >&2
     exit 1
 fi
 

@@ -14,13 +14,13 @@ jobs:
         board:
           - name: generic_esp32s3_16mb
             build_dir: build_generic_16mb
-            artifact_name: flipper-esp32s3-generic
+            artifact_name: flipper-esp32s3-generic_16mb
             chip: esp32s3
             flash_size: 16MB
             partitions_csv: "partitions_multiboot.csv"
           - name: generic_esp32s3_8mb
             build_dir: build_generic_8mb
-            artifact_name: flipper-esp32s3-generic
+            artifact_name: flipper-esp32s3-generic_8mb
             chip: esp32s3
             flash_size: 8MB
             partitions_csv: "partitions_singleapp_small.csv"
